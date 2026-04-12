@@ -236,10 +236,10 @@ with aba_detalhe:
                 hist = get_historico(ticker, periodo_map[per_sel])
 
                if not hist.empty and "preco" in hist.columns and len(hist) > 0:
-    val_atual = float(hist["preco"].iloc[-1])
-    val_inicial = float(hist["preco"].iloc[0])
+        val_atual = float(hist["preco"].iloc[-1])
+        val_inicial = float(hist["preco"].iloc[0])
     
-    cor = "#3fb950" if val_atual >= val_inicial else "#f85149"
+        cor = "#3fb950" if val_atual >= val_inicial else "#f85149"
                     fig = go.Figure(go.Scatter(
                         x=hist.index, y=hist["preco"],
                         mode="lines", line=dict(color=cor, width=2),
