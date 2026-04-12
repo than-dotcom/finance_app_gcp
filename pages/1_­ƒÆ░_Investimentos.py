@@ -106,7 +106,7 @@ with aba_cart:
 
     st.dataframe(
         display_df.style
-            .applymap(cor_num, subset=["Var. Dia %", "Retorno %", "Retorno BRL"])
+            .map(cor_num, subset=["Var. Dia %", "Retorno %", "Retorno BRL"])
             .format({
                 "Qtd."     : "{:,.4f}",
                 "P. Médio" : "{:,.2f}",
