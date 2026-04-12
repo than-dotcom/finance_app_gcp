@@ -106,7 +106,7 @@ with aba_cart:
 
     st.dataframe(
         display_df.style
-            .map(cor_num, subset=["Var. Dia %", "Retorno %", "Retorno BRL"])
+            .applymap(cor_num, subset=["Var. Dia %", "Retorno %", "Retorno BRL"])
             .format({
                 "Qtd."     : "{:,.4f}",
                 "P. Médio" : "{:,.2f}",
@@ -235,11 +235,8 @@ with aba_detalhe:
                 per_sel = st.radio("Período", list(periodo_map.keys()), horizontal=True, index=3)
                 hist = get_historico(ticker, periodo_map[per_sel])
 
-               if not hist.empty and "preco" in hist.columns and len(hist) > 0:
-        val_atual = float(hist["preco"].iloc[-1])
-        val_inicial = float(hist["preco"].iloc[0])
-    
-        cor = "#3fb950" if val_atual >= val_inicial else "#f85149"
+                if not hist.empty:
+                    cor = "#3fb950" if hist["preco"].iloc[-1] >= hist["preco"].iloc[0] else "#f85149"
                     fig = go.Figure(go.Scatter(
                         x=hist.index, y=hist["preco"],
                         mode="lines", line=dict(color=cor, width=2),
