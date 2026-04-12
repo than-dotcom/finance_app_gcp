@@ -1,17 +1,13 @@
 """
 app.py — FinTrack · Dashboard Principal
-========================================
-Página inicial com KPIs, evolução temporal e composição do portfólio.
-Execute com:  streamlit run app.py
+Execute: streamlit run app.py
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
 from datetime import datetime
 
-# Configuração da página
 st.set_page_config(
     page_title="FinTrack",
     page_icon="📈",
@@ -19,7 +15,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Imports internos
 from utils.data_manager import (
     get_investimentos, get_transacoes, get_settings,
     salvar_settings, seed_dados_exemplo,
@@ -27,74 +22,124 @@ from utils.data_manager import (
 )
 from utils.market_data import (
     get_taxas_cambio, enriquecer_investimento,
-    historico_portfolio, converter_para_brl,
+    historico_portfolio, converter_para_brl, taxa_brl_por_moeda,
 )
 
-# ─── SEED ─────────────────────────────────────────────────────────────────────
 seed_dados_exemplo()
 
-# ─── CSS GLOBAL ───────────────────────────────────────────────────────────────
-st.markdown("""
-<style>
-/* Remove padding padrão do Streamlit */
-.block-container { padding-top: 1.2rem !important; padding-bottom: 0 !important; }
+# ── PALETA PASTEL ──────────────────────────────────────────────────────────────
+P_GREEN  = "#86efac"   # verde pastel
+P_RED    = "#fca5a5"   # vermelho pastel
+P_BLUE   = "#93c5fd"   # azul pastel
+P_YELLOW = "#fde68a"   # amarelo pastel
+P_PURPLE = "#c4b5fd"   # roxo pastel
+P_TEAL   = "#5eead4"   # teal pastel
+CARD_BG  = "#161b22"
+BORDER   = "#30363d"
+TEXT_PRI = "#e6edf3"
+TEXT_SEC = "#8b949e"
+BG_MAIN  = "#0d1117"
 
-/* Cards KPI */
-.kpi-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
-    padding: 1.2rem 1.4rem;
-    height: 130px;
-}
-.kpi-label {
-    color: #8b949e;
-    font-size: 0.82rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: .05em;
-    margin-bottom: 0.5rem;
+st.markdown(f"""
+<style>
+.block-container {{ padding-top: 1rem !important; padding-bottom: 0 !important; }}
+
+/* ── Ilha de KPIs ── */
+.kpi-island {{
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: {BORDER};
+    border: 1px solid {BORDER};
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 1.4rem;
+}}
+.kpi-cell {{
+    background: {CARD_BG};
+    padding: 1.3rem 1.5rem;
+}}
+.kpi-cell:first-child {{ border-radius: 13px 0 0 13px; }}
+.kpi-cell:last-child  {{ border-radius: 0 13px 13px 0; }}
+
+.kpi-icon-row {{
     display: flex;
     justify-content: space-between;
     align-items: center;
-}
-.kpi-value {
-    color: #e6edf3;
-    font-size: 1.55rem;
+    margin-bottom: 0.8rem;
+}}
+.kpi-label {{
+    color: {TEXT_SEC};
+    font-size: 0.80rem;
+    font-weight: 500;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+}}
+.kpi-icon {{
+    width: 32px; height: 32px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+}}
+.kpi-value {{
+    color: {TEXT_PRI};
+    font-size: 1.6rem;
     font-weight: 700;
-    margin-bottom: 0.25rem;
-    line-height: 1.2;
-}
-.kpi-sub   { color: #8b949e; font-size: 0.78rem; }
-.kpi-green { color: #3fb950 !important; }
-.kpi-red   { color: #f85149 !important; }
+    line-height: 1.1;
+    margin-bottom: 0.35rem;
+}}
+.kpi-sub  {{ color: {TEXT_SEC}; font-size: 0.78rem; }}
+.kpi-badge {{
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    margin-top: 0.3rem;
+}}
+.badge-green  {{ background: rgba(134,239,172,.15); color: {P_GREEN};  }}
+.badge-red    {{ background: rgba(252,165,165,.15); color: {P_RED};    }}
+.badge-blue   {{ background: rgba(147,197,253,.15); color: {P_BLUE};   }}
+.badge-yellow {{ background: rgba(253,230,138,.15); color: {P_YELLOW}; }}
 
-/* Título do dashboard */
-.dash-title { font-size: 1.6rem; font-weight: 700; color: #e6edf3; }
-.dash-sub   { font-size: 0.88rem; color: #8b949e; margin-top: -0.3rem; }
-
-/* Painéis de gráfico */
-.chart-panel {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 10px;
+/* ── Painéis ── */
+.panel {{
+    background: {CARD_BG};
+    border: 1px solid {BORDER};
+    border-radius: 12px;
     padding: 1.2rem 1.4rem;
-}
+    margin-bottom: 1rem;
+}}
+.panel-title {{
+    color: {TEXT_SEC};
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}}
+
+/* ── Topo ── */
+.dash-title {{ font-size: 1.55rem; font-weight: 700; color: {TEXT_PRI}; margin-bottom: 2px; }}
+.dash-sub   {{ font-size: 0.86rem; color: {TEXT_SEC}; }}
 </style>
 """, unsafe_allow_html=True)
 
-# ─── SETTINGS + CÂMBIO ────────────────────────────────────────────────────────
+# ── SETTINGS ──────────────────────────────────────────────────────────────────
 settings   = get_settings()
 moeda_base = settings.get("moeda_base", "BRL")
 nome_user  = settings.get("nome_usuario", "Investidor")
-taxas      = get_taxas_cambio(moeda_base)
+taxas_brl  = get_taxas_cambio("BRL")   # sempre base BRL internamente
 simbolo    = SIMBOLOS_MOEDA.get(moeda_base, "R$")
 
-# ─── SIDEBAR ──────────────────────────────────────────────────────────────────
+def fmt(v):
+    return f"{simbolo} {abs(v):,.2f}".replace(",","X").replace(".",",").replace("X",".")
+
+# ── SIDEBAR ───────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("## ⚙️ Configurações")
+    st.markdown("## FinTrack")
     moeda_sel = st.selectbox(
-        "Moeda de exibição",
+        "💱 Moeda de exibição",
         list(SIMBOLOS_MOEDA.keys()),
         index=list(SIMBOLOS_MOEDA.keys()).index(moeda_base),
         format_func=lambda x: f"{SIMBOLOS_MOEDA[x]} {x}",
@@ -109,258 +154,209 @@ with st.sidebar:
     if nome_input != nome_user:
         settings["nome_usuario"] = nome_input
         salvar_settings(settings)
+        st.rerun()
 
     st.divider()
-    st.markdown("### 🧭 Navegação")
-    st.page_link("app.py",                       label="📊 Dashboard",      icon="📊")
-    st.page_link("pages/1_💰_Investimentos.py",  label="💰 Investimentos",  icon="💰")
-    st.page_link("pages/2_💸_Despesas.py",       label="💸 Despesas",       icon="💸")
-    st.page_link("pages/3_📊_Relatorios.py",     label="📊 Relatórios",     icon="📊")
-    st.page_link("pages/4_⚙️_Configuracoes.py", label="⚙️ Configurações",  icon="⚙️")
+    st.caption("📊 Dashboard · 💰 Investimentos · 💸 Despesas\n📈 Relatórios · ⚙️ Configurações")
+    st.caption("Use o menu acima para navegar entre páginas.")
+    st.divider()
+
+    # Câmbio ao vivo
+    st.markdown("**💱 Câmbio vs BRL**")
+    pares = [("USD","$"),("EUR","€"),("GBP","£"),("CHF","Fr")]
+    for m, s in pares:
+        val = taxa_brl_por_moeda(m, taxas_brl)
+        st.caption(f"1 {s} = R$ {val:.2f}")
 
     st.divider()
-    st.caption("FinTrack v1.0  •  Dados em tempo real via yfinance")
+    st.caption("FinTrack v1.1  •  yfinance + exchangerate-api")
 
-# ─── CABEÇALHO ────────────────────────────────────────────────────────────────
-col_title, col_filter = st.columns([3, 1])
-with col_title:
-    hora = datetime.now().hour
-    saudacao = "Bom dia" if hora < 12 else ("Boa tarde" if hora < 18 else "Boa noite")
+# ── CABEÇALHO ─────────────────────────────────────────────────────────────────
+hora = datetime.now().hour
+saudacao = "Bom dia" if hora < 12 else ("Boa tarde" if hora < 18 else "Boa noite")
+
+col_h, col_f = st.columns([3, 1])
+with col_h:
     st.markdown(f'<div class="dash-title">Dashboard Financeiro</div>', unsafe_allow_html=True)
-    st.markdown(f'<div class="dash-sub">{saudacao}, {nome_user} · Última atualização: {datetime.now().strftime("%d/%m/%Y %H:%M")}</div>', unsafe_allow_html=True)
-
-with col_filter:
-    filtro_periodo = st.selectbox("", ["Este mês", "3 meses", "6 meses", "1 ano", "Tudo"], label_visibility="collapsed")
+    st.markdown(f'<div class="dash-sub">{saudacao}, {nome_user} · {datetime.now().strftime("%d/%m/%Y %H:%M")}</div>', unsafe_allow_html=True)
+with col_f:
+    filtro = st.selectbox("", ["Este mês","3 meses","6 meses","1 ano","Tudo"],
+                          label_visibility="collapsed")
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ─── CARREGAR E ENRIQUECER DADOS ──────────────────────────────────────────────
+# ── DADOS ─────────────────────────────────────────────────────────────────────
 with st.spinner("Atualizando cotações..."):
-    investimentos_raw = get_investimentos()
-    investimentos     = [enriquecer_investimento(inv, taxas) for inv in investimentos_raw]
+    investimentos = [enriquecer_investimento(inv, taxas_brl) for inv in get_investimentos()]
 
 transacoes = get_transacoes()
 
-# ─── KPIs ─────────────────────────────────────────────────────────────────────
-patrimonio_total = sum(inv["valor_atual_brl"] for inv in investimentos)
-custo_total      = sum(inv["custo_brl"] for inv in investimentos)
-retorno_total    = patrimonio_total - custo_total
-retorno_pct      = (retorno_total / custo_total * 100) if custo_total else 0.0
+# KPI valores
+patrimonio  = sum(i["valor_atual_brl"] for i in investimentos)
+custo_total = sum(i["custo_brl"] for i in investimentos)
+retorno     = patrimonio - custo_total
+retorno_pct = (retorno / custo_total * 100) if custo_total else 0.0
 
-# Despesas e receitas do mês atual
 mes_atual = datetime.now().month
 ano_atual = datetime.now().year
-transacoes_mes = [
-    t for t in transacoes
-    if datetime.strptime(t.get("data", "2000-01-01"), "%Y-%m-%d").month == mes_atual
-    and datetime.strptime(t.get("data", "2000-01-01"), "%Y-%m-%d").year == ano_atual
-]
-despesas_mes = sum(
-    converter_para_brl(float(t["valor"]), t.get("moeda", "BRL"), taxas)
-    for t in transacoes_mes if t.get("tipo") == "despesa"
-)
-receitas_mes = sum(
-    converter_para_brl(float(t["valor"]), t.get("moeda", "BRL"), taxas)
-    for t in transacoes_mes if t.get("tipo") == "receita"
-)
-saldo_mes = receitas_mes - despesas_mes
+t_mes = [t for t in transacoes
+         if datetime.strptime(t.get("data","2000-01-01"),"%Y-%m-%d").month == mes_atual
+         and datetime.strptime(t.get("data","2000-01-01"),"%Y-%m-%d").year == ano_atual]
+desp_mes = sum(converter_para_brl(float(t["valor"]),t.get("moeda","BRL"),taxas_brl)
+               for t in t_mes if t.get("tipo")=="despesa")
+rec_mes  = sum(converter_para_brl(float(t["valor"]),t.get("moeda","BRL"),taxas_brl)
+               for t in t_mes if t.get("tipo")=="receita")
+saldo_mes = rec_mes - desp_mes
+n_pos = sum(1 for i in investimentos if i["retorno_brl"] >= 0)
 
-def fmt(v): return f"{simbolo} {abs(v):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+# ── ILHA DE KPIs ──────────────────────────────────────────────────────────────
+ret_badge  = "badge-green" if retorno >= 0 else "badge-red"
+ret_sinal  = "▲" if retorno >= 0 else "▼"
+saldo_badge = "badge-green" if saldo_mes >= 0 else "badge-red"
 
-col1, col2, col3, col4 = st.columns(4)
+st.markdown(f"""
+<div class="kpi-island">
+  <div class="kpi-cell">
+    <div class="kpi-icon-row">
+      <span class="kpi-label">Patrimônio Total</span>
+      <span class="kpi-icon" style="background:rgba(147,197,253,.12)">💰</span>
+    </div>
+    <div class="kpi-value">{fmt(patrimonio)}</div>
+    <div class="kpi-sub">{len(investimentos)} ativos monitorados</div>
+    <span class="kpi-badge badge-blue">{len(investimentos)} ativos</span>
+  </div>
+  <div class="kpi-cell">
+    <div class="kpi-icon-row">
+      <span class="kpi-label">Retorno Total</span>
+      <span class="kpi-icon" style="background:rgba(134,239,172,.12)">📈</span>
+    </div>
+    <div class="kpi-value">{fmt(retorno)}</div>
+    <div class="kpi-sub">Sobre {fmt(custo_total)} investidos</div>
+    <span class="kpi-badge {ret_badge}">{ret_sinal} {abs(retorno_pct):.1f}%</span>
+  </div>
+  <div class="kpi-cell">
+    <div class="kpi-icon-row">
+      <span class="kpi-label">Saldo do Mês</span>
+      <span class="kpi-icon" style="background:rgba(253,230,138,.12)">🗓️</span>
+    </div>
+    <div class="kpi-value">{fmt(saldo_mes)}</div>
+    <div class="kpi-sub">Receitas: {fmt(rec_mes)}</div>
+    <span class="kpi-badge {saldo_badge}">Desp: {fmt(desp_mes)}</span>
+  </div>
+  <div class="kpi-cell">
+    <div class="kpi-icon-row">
+      <span class="kpi-label">No Positivo</span>
+      <span class="kpi-icon" style="background:rgba(196,181,253,.12)">✅</span>
+    </div>
+    <div class="kpi-value">{n_pos} / {len(investimentos)}</div>
+    <div class="kpi-sub">ativos com retorno positivo</div>
+    <span class="kpi-badge badge-purple" style="background:rgba(196,181,253,.15);color:{P_PURPLE}">
+        {int(n_pos/len(investimentos)*100) if investimentos else 0}% da carteira
+    </span>
+  </div>
+</div>
+""", unsafe_allow_html=True)
 
-with col1:
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Patrimônio Total <span>💰</span></div>
-        <div class="kpi-value">{fmt(patrimonio_total)}</div>
-        <div class="kpi-sub">{len(investimentos)} ativos monitorados</div>
-    </div>""", unsafe_allow_html=True)
-
-with col2:
-    cor = "kpi-green" if retorno_total >= 0 else "kpi-red"
-    sinal = "↑" if retorno_total >= 0 else "↓"
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Retorno Total <span>📈</span></div>
-        <div class="kpi-value {cor}">{fmt(retorno_total)}</div>
-        <div class="kpi-sub {cor}">{sinal} {abs(retorno_pct):.1f}% sobre o investido</div>
-    </div>""", unsafe_allow_html=True)
-
-with col3:
-    cor_saldo = "kpi-green" if saldo_mes >= 0 else "kpi-red"
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Saldo do Mês <span>🗓️</span></div>
-        <div class="kpi-value">{fmt(saldo_mes)}</div>
-        <div class="kpi-sub">Receitas: {fmt(receitas_mes)} · Desp: {fmt(despesas_mes)}</div>
-    </div>""", unsafe_allow_html=True)
-
-with col4:
-    n_pos = sum(1 for inv in investimentos if inv["retorno_brl"] >= 0)
-    st.markdown(f"""
-    <div class="kpi-card">
-        <div class="kpi-label">Ativos no Positivo <span>✅</span></div>
-        <div class="kpi-value kpi-green">{n_pos} / {len(investimentos)}</div>
-        <div class="kpi-sub">Investido: {fmt(custo_total)}</div>
-    </div>""", unsafe_allow_html=True)
-
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ─── GRÁFICOS PRINCIPAIS ──────────────────────────────────────────────────────
+# ── GRÁFICOS ──────────────────────────────────────────────────────────────────
 col_pie, col_line = st.columns([1, 2])
 
-# ── Composição por tipo ─────────────────────────────────────────────────────
 with col_pie:
-    st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
-    st.markdown("**Composição do Portfólio**")
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown('<div class="panel-title">Composição do Portfólio</div>', unsafe_allow_html=True)
 
     if investimentos:
-        df_comp = (
-            pd.DataFrame(investimentos)
-            .groupby("tipo")["valor_atual_brl"]
-            .sum()
-            .reset_index()
-        )
-        df_comp["label"] = df_comp["tipo"].map(
-            lambda t: TIPOS_INVESTIMENTO.get(t, t)
-        )
+        df_comp = (pd.DataFrame(investimentos)
+                   .groupby("tipo")["valor_atual_brl"].sum().reset_index())
+        df_comp["label"] = df_comp["tipo"].map(lambda t: TIPOS_INVESTIMENTO.get(t, t))
         df_comp = df_comp[df_comp["valor_atual_brl"] > 0]
 
-        cores = [
-            "#388bfd","#3fb950","#e3b341","#f85149",
-            "#bc8cff","#79c0ff","#56d364","#ffa657",
-            "#ff7b72","#d2a8ff","#a5d6ff","#7ee787",
-        ]
+        cores_pastel = [P_BLUE,P_GREEN,P_YELLOW,P_RED,P_PURPLE,P_TEAL,
+                        "#f9a8d4","#fdba74","#a5f3fc","#d9f99d"]
         fig_pie = go.Figure(go.Pie(
-            labels=df_comp["label"],
-            values=df_comp["valor_atual_brl"],
-            hole=0.52,
-            marker_colors=cores[:len(df_comp)],
-            textinfo="percent",
-            textfont_size=11,
-            hovertemplate="<b>%{label}</b><br>%{customdata}<br>%{percent}<extra></extra>",
-            customdata=[fmt(v) for v in df_comp["valor_atual_brl"]],
+            labels=df_comp["label"], values=df_comp["valor_atual_brl"],
+            hole=0.55, marker_colors=cores_pastel[:len(df_comp)],
+            textinfo="percent", textfont_size=10,
+            hovertemplate="<b>%{label}</b><br>%{percent}<extra></extra>",
         ))
         fig_pie.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#c9d1d9",
-            height=300,
-            margin=dict(l=0, r=0, t=10, b=0),
-            legend=dict(
-                orientation="v", font_size=10,
-                bgcolor="rgba(0,0,0,0)", x=1.0,
-            ),
-            annotations=[dict(
-                text=f"<b>{fmt(patrimonio_total)}</b>",
-                x=0.5, y=0.5, font_size=11,
-                showarrow=False, font_color="#c9d1d9",
-            )],
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font_color=TEXT_SEC, height=280, margin=dict(l=0,r=0,t=0,b=0),
+            legend=dict(orientation="v", font_size=9, bgcolor="rgba(0,0,0,0)"),
+            annotations=[dict(text=f"<b>{fmt(patrimonio)}</b>",
+                              x=0.5,y=0.5,font_size=10,showarrow=False,font_color=TEXT_PRI)],
         )
         st.plotly_chart(fig_pie, use_container_width=True, config={"displayModeBar": False})
-    else:
-        st.info("Nenhum investimento cadastrado.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# ── Evolução temporal ───────────────────────────────────────────────────────
 with col_line:
-    st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
-    st.markdown("**Evolução do Portfólio**")
+    st.markdown('<div class="panel">', unsafe_allow_html=True)
+    st.markdown('<div class="panel-title">Evolução do Portfólio</div>', unsafe_allow_html=True)
 
-    hist = historico_portfolio(investimentos_raw, taxas)
-
+    hist = historico_portfolio(get_investimentos(), taxas_brl)
     if not hist.empty:
-        # Filtra pelo período selecionado
-        mapa_periodo = {
-            "Este mês": 30, "3 meses": 90,
-            "6 meses": 180, "1 ano": 365, "Tudo": 9999,
-        }
-        dias = mapa_periodo[filtro_periodo]
-        hist_filt = hist.tail(dias)
-
-        retorno_periodo = (
-            (hist_filt["total"].iloc[-1] / hist_filt["total"].iloc[0] - 1) * 100
-            if len(hist_filt) > 1 else 0
-        )
-        cor_linha = "#3fb950" if retorno_periodo >= 0 else "#f85149"
+        mapa = {"Este mês":30,"3 meses":90,"6 meses":180,"1 ano":365,"Tudo":9999}
+        hf = hist.tail(mapa[filtro])
+        ret_p = ((hf["total"].iloc[-1]/hf["total"].iloc[0]-1)*100) if len(hf)>1 else 0
+        cor = P_GREEN if ret_p >= 0 else P_RED
+        fill_cor = "rgba(134,239,172,0.08)" if ret_p >= 0 else "rgba(252,165,165,0.08)"
 
         fig_line = go.Figure()
         fig_line.add_trace(go.Scatter(
-            x=hist_filt.index,
-            y=hist_filt["total"],
-            mode="lines",
-            line=dict(color=cor_linha, width=2.5),
-            fill="tozeroy",
-            fillcolor=f"{'rgba(63,185,80,' if retorno_periodo >= 0 else 'rgba(248,81,73,'}0.08)",
-            name="Portfólio",
-            hovertemplate="%{x|%d/%m/%Y}<br><b>%{y:,.2f}</b><extra></extra>",
+            x=hf.index, y=hf["total"], mode="lines",
+            line=dict(color=cor, width=2.5),
+            fill="tozeroy", fillcolor=fill_cor,
+            hovertemplate="%{x|%d/%m/%Y}<br><b>R$ %{y:,.0f}</b><extra></extra>",
         ))
         fig_line.update_layout(
-            paper_bgcolor="rgba(0,0,0,0)",
-            plot_bgcolor="rgba(0,0,0,0)",
-            font_color="#c9d1d9",
-            height=300,
-            margin=dict(l=0, r=0, t=10, b=0),
-            xaxis=dict(
-                showgrid=True, gridcolor="#21262d", gridwidth=0.5,
-                tickfont_size=10, zeroline=False,
-            ),
-            yaxis=dict(
-                showgrid=True, gridcolor="#21262d", gridwidth=0.5,
-                tickfont_size=10, zeroline=False,
-                tickprefix=f"{simbolo} ",
-            ),
-            hovermode="x unified",
-            showlegend=False,
+            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+            font_color=TEXT_SEC, height=280, margin=dict(l=0,r=0,t=0,b=0),
+            xaxis=dict(showgrid=True, gridcolor="#21262d", tickfont_size=10, zeroline=False),
+            yaxis=dict(showgrid=True, gridcolor="#21262d", tickfont_size=10, zeroline=False,
+                       tickprefix="R$ "),
+            hovermode="x unified", showlegend=False,
         )
         st.plotly_chart(fig_line, use_container_width=True, config={"displayModeBar": False})
     else:
-        st.info("Histórico não disponível (adicione ativos com ticker).")
-
+        st.info("Histórico disponível após adicionar ativos com ticker.")
     st.markdown('</div>', unsafe_allow_html=True)
 
-st.markdown("<br>", unsafe_allow_html=True)
-
-# ─── TABELA DE ATIVOS ─────────────────────────────────────────────────────────
-st.markdown('<div class="chart-panel">', unsafe_allow_html=True)
-st.markdown("**Carteira de Investimentos**")
+# ── TABELA ────────────────────────────────────────────────────────────────────
+st.markdown('<div class="panel">', unsafe_allow_html=True)
+st.markdown('<div class="panel-title">Carteira de Investimentos</div>', unsafe_allow_html=True)
 
 if investimentos:
     rows = []
     for inv in sorted(investimentos, key=lambda x: -x["valor_atual_brl"]):
-        var_dia = inv.get("variacao_dia", 0.0)
-        ret     = inv.get("retorno_pct", 0.0)
+        var = inv.get("variacao_dia", 0.0)
+        ret = inv.get("retorno_pct", 0.0)
         rows.append({
-            "Ativo"         : inv.get("nome", inv.get("ticker", "—")),
-            "Tipo"          : TIPOS_INVESTIMENTO.get(inv["tipo"], inv["tipo"]),
-            "Qtd."          : inv.get("quantidade", 0),
-            "P. Médio"      : f"{SIMBOLOS_MOEDA.get(inv['moeda'],'R$')} {inv.get('preco_medio', 0):,.2f}",
-            "P. Atual"      : f"{SIMBOLOS_MOEDA.get(inv.get('moeda','BRL'),'R$')} {inv.get('preco_atual', 0):,.2f}",
-            "Var. Dia"      : f"{'▲' if var_dia >= 0 else '▼'} {abs(var_dia):.2f}%",
-            "Valor (BRL)"   : fmt(inv["valor_atual_brl"]),
-            "Retorno"       : f"{'▲' if ret >= 0 else '▼'} {abs(ret):.1f}%",
+            "Ativo"       : inv.get("nome", inv.get("ticker","—")),
+            "Tipo"        : TIPOS_INVESTIMENTO.get(inv["tipo"], inv["tipo"]),
+            "Qtd."        : inv.get("quantidade", 0),
+            "P. Médio"    : f"{SIMBOLOS_MOEDA.get(inv['moeda'],'R$')} {inv.get('preco_medio',0):,.2f}",
+            "P. Atual"    : f"{SIMBOLOS_MOEDA.get(inv.get('moeda','BRL'),'R$')} {inv.get('preco_atual',0):,.2f}",
+            "Var. Dia"    : var,
+            "Valor (BRL)" : inv["valor_atual_brl"],
+            "Retorno %"   : ret,
         })
     df_tab = pd.DataFrame(rows)
 
-    def colorir_col(val):
-        if isinstance(val, str) and ("▲" in val):
-            return "color: #3fb950"
-        if isinstance(val, str) and ("▼" in val):
-            return "color: #f85149"
-        return ""
+    def cor_num(val):
+        if isinstance(val, (int, float)):
+            if val > 0: return f"color: {P_GREEN}"
+            if val < 0: return f"color: {P_RED}"
+        return f"color: {TEXT_SEC}"
 
     st.dataframe(
-        df_tab.style.applymap(colorir_col, subset=["Var. Dia", "Retorno"]),
-        use_container_width=True,
-        hide_index=True,
-        height=min(400, 60 + len(rows) * 38),
+        df_tab.style.map(cor_num, subset=["Var. Dia","Retorno %"])
+              .format({"Qtd.":"{:,.4f}","Var. Dia":"{:+.2f}%",
+                       "Valor (BRL)":"{:,.2f}","Retorno %":"{:+.1f}%"}),
+        use_container_width=True, hide_index=True,
+        height=min(420, 60+len(rows)*38),
     )
 else:
-    st.info("Nenhum investimento encontrado. Acesse **Investimentos** para adicionar.")
+    st.info("Nenhum investimento. Acesse **Investimentos** no menu.")
 
 st.markdown('</div>', unsafe_allow_html=True)
-
-# ─── RODAPÉ ───────────────────────────────────────────────────────────────────
 st.markdown("<br>")
-st.caption("⚠️ FinTrack é uma ferramenta pessoal de acompanhamento. Cotações via Yahoo Finance. Não constitui recomendação de investimento.")
+st.caption("⚠️ FinTrack é uma ferramenta de acompanhamento pessoal. Não constitui recomendação de investimento.")
