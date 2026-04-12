@@ -236,7 +236,6 @@ with aba_detalhe:
                 hist = get_historico(ticker, periodo_map[per_sel])
 
                if not hist.empty and "preco" in hist.columns and len(hist) > 0:
-
     val_atual = float(hist["preco"].iloc[-1])
     val_inicial = float(hist["preco"].iloc[0])
     
