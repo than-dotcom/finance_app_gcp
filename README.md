@@ -1,3 +1,4 @@
+[README.md](https://github.com/user-attachments/files/26661226/README.md)
 # 📈 FinTrack — Controle Financeiro Completo
 
 App de controle financeiro pessoal com suporte a investimentos brasileiros e internacionais, múltiplas moedas e rastreamento de despesas — pronto para Streamlit Cloud e caminho para PWA.
