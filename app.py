@@ -1,6 +1,6 @@
 """
 FinTrack - Aplicativo de Gestão Financeira Pessoal
-Desenvolvido com Streamlit + SQLite
+Desenvolvido com Streamlit + Supabase
 """
 
 import streamlit as st
@@ -8,7 +8,6 @@ import pandas as pd
 from datetime import datetime, timedelta
 import database as db
 import api_client as api
-from pages import investimentos, despesas, relatorios, configuracoes, dashboard
 
 # ============ CONFIGURAÇÃO DA PÁGINA ============
 st.set_page_config(
@@ -19,7 +18,12 @@ st.set_page_config(
 )
 
 # ============ INICIALIZAÇÃO ============
-db.init_db()
+# Inicializar cliente Supabase (cria tabelas se não existirem)
+try:
+    db.get_supabase_client()
+except Exception as e:
+    st.error(f"❌ Erro ao conectar ao Supabase: {str(e)}")
+    st.stop()
 
 # Tema dark via CSS customizado
 st.markdown("""
@@ -63,20 +67,26 @@ st.sidebar.markdown("---")
 st.sidebar.info("💡 **Dica:** Todos os valores são convertidos para BRL automaticamente.")
 
 # ============ ROTEAMENTO DE PÁGINAS ============
+
 if page == "Dashboard":
-    dashboard.render()
+    from pages.dashboard import render
+    render()
 
 elif page == "Investimentos":
-    investimentos.render()
+    from pages.investimentos import render
+    render()
 
 elif page == "Despesas & Receitas":
-    despesas.render()
+    from pages.despesas import render
+    render()
 
 elif page == "Relatórios":
-    relatorios.render()
+    from pages.relatorios import render
+    render()
 
 elif page == "Configurações":
-    configuracoes.render()
+    from pages.configuracoes import render
+    render()
 
 # ============ FOOTER ============
 st.sidebar.markdown("---")
@@ -84,7 +94,7 @@ st.sidebar.markdown(
     """
     <div style='text-align: center; color: #8b949e; font-size: 12px;'>
     FinTrack v1.0 | Desenvolvido com ❤️<br>
-    Dados persistidos em SQLite
+    Dados persistidos em Supabase PostgreSQL
     </div>
     """,
     unsafe_allow_html=True
